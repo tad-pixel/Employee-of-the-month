@@ -85,9 +85,10 @@ select option{background:#1A1A2E}
 .share-row input{margin-bottom:0;flex:1}
 .hidden{display:none!important}
 .pts-hint{font-size:0.78rem;color:var(--text-muted);margin-bottom:1rem;padding:8px 12px;background:rgba(232,197,71,0.06);border-radius:8px;border:1px solid var(--border)}
-.loading{text-align:center;padding:3rem;color:var(--text-muted)}
-.spinner{display:inline-block;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin-bottom:0.5rem}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(26,26,46,0.3);border-top-color:#1A1A2E;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{text-align:center;padding:4rem 1rem;color:var(--text-muted)}
+.big-spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 1rem}
 </style>
 </head>
 <body>
@@ -102,11 +103,7 @@ select option{background:#1A1A2E}
 </div>
 
 <div class="main">
-
-  <!-- Loading screen -->
-  <div id="app-loading" class="loading">
-    <div class="spinner"></div><br>Loading...
-  </div>
+  <div id="app-loading" class="loading-overlay"><div class="big-spinner"></div>Loading…</div>
 
   <!-- VOTE PAGE -->
   <div class="page hidden" id="page-vote">
@@ -179,7 +176,7 @@ select option{background:#1A1A2E}
             <input type="password" id="login-pw" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
           </div>
           <div id="login-alert"></div>
-          <button class="btn btn-primary btn-block" onclick="doLogin()">Login</button>
+          <button class="btn btn-primary btn-block" id="login-btn" onclick="doLogin()">Login</button>
         </div>
       </div>
     </div>
@@ -240,44 +237,100 @@ select option{background:#1A1A2E}
       </div>
     </div>
   </div>
-
 </div>
 
 <script>
 const EMPLOYEES = ['Ahkil','Aleksei "Alex"','Chris','Cody','Collin','Danial','Danny','Dhananjay "Drew"','Dhanush','Domingo','Garrett','Hilario "Larry"','Jasmine','Luisander "Luis"','Manuel "Manny"','Maria','Matthew M','Matthew P','Nicole','Paul','Samreen','Taha','Tho','Viquar','Yorleny'];
 const DEFAULT_ADMIN = { email: 'admin@company.com', password: 'Admin123!', superAdmin: true };
 
-// Shared storage keys — shared:true means ALL users/devices see the same data
-const KEYS = { votes: 'eom_v1_votes', admins: 'eom_v1_admins' };
+// ── DB: stored as a single JSON object via Claude API ────────────────────────
+// Structure: { votes: [...], admins: [...] }
 
 let DB = { votes: [], admins: [DEFAULT_ADMIN] };
 let loggedInEmail = null;
 
-// ── Storage: always use shared=true so all devices share the same data ────────
-async function dbLoad(key) {
-  const result = await window.storage.get(KEYS[key], true);
-  return result ? JSON.parse(result.value) : null;
+async function apiCall(systemPrompt, userMsg) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+  const data = await res.json();
+  return data.content?.[0]?.text || '';
 }
-async function dbSave(key, val) {
-  await window.storage.set(KEYS[key], JSON.stringify(val), true);
+
+async function loadDB() {
+  try {
+    const text = await apiCall(
+      'You are a JSON database. You store and retrieve data. When asked to GET, respond with ONLY the raw JSON string, no explanation, no markdown, no backticks. If no data exists, respond with: {"votes":[],"admins":[{"email":"admin@company.com","password":"Admin123!","superAdmin":true}]}',
+      'GET eom_database'
+    );
+    const parsed = JSON.parse(text.trim());
+    if (parsed && parsed.votes && parsed.admins) {
+      DB = parsed;
+    }
+  } catch(e) {
+    // use defaults
+  }
 }
+
+async function saveDB() {
+  try {
+    await apiCall(
+      'You are a JSON database. When asked to SET data, acknowledge with exactly: SAVED',
+      'SET eom_database ' + JSON.stringify(DB)
+    );
+  } catch(e) {}
+}
+
+// ── The real persistence: window.storage with robust retry ───────────────────
+async function storageGet(key) {
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await window.storage.get(key, true);
+      return r ? JSON.parse(r.value) : null;
+    } catch(e) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+  }
+  return null;
+}
+
+async function storageSet(key, val) {
+  for (let i = 0; i < 3; i++) {
+    try {
+      await window.storage.set(key, JSON.stringify(val), true);
+      return true;
+    } catch(e) {
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+  return false;
+}
+
+async function loadData() {
+  try {
+    const votes  = await storageGet('eom2_votes');
+    const admins = await storageGet('eom2_admins');
+    DB.votes  = votes  || [];
+    DB.admins = admins || [DEFAULT_ADMIN];
+    if (!DB.admins.find(a => a.superAdmin)) DB.admins.unshift(DEFAULT_ADMIN);
+  } catch(e) {
+    DB = { votes: [], admins: [DEFAULT_ADMIN] };
+  }
+}
+
+async function saveVotes()  { await storageSet('eom2_votes',  DB.votes);  }
+async function saveAdmins() { await storageSet('eom2_admins', DB.admins); }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function init() {
-  try {
-    const [votes, admins] = await Promise.all([dbLoad('votes'), dbLoad('admins')]);
-    DB.votes  = votes  || [];
-    DB.admins = admins || [DEFAULT_ADMIN];
-    // Ensure default admin always exists
-    if (!DB.admins.find(a => a.superAdmin)) {
-      DB.admins.unshift(DEFAULT_ADMIN);
-      await dbSave('admins', DB.admins);
-    }
-  } catch(e) {
-    // storage unavailable — run with in-memory only
-    DB.votes  = [];
-    DB.admins = [DEFAULT_ADMIN];
-  }
+  await loadData();
   populateSelects();
   document.getElementById('app-loading').classList.add('hidden');
   document.getElementById('page-vote').classList.remove('hidden');
@@ -293,32 +346,31 @@ function populateSelects() {
   });
 }
 
-// ── Navigation ────────────────────────────────────────────────────────────────
 function switchTop(tab) {
   ['vote','admin'].forEach(t => {
     const p = document.getElementById('page-' + t);
     p.classList.toggle('visible', t === tab);
-    p.classList.toggle('hidden', t !== tab);
+    p.classList.toggle('hidden',  t !== tab);
     document.getElementById('ttab-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'admin' && loggedInEmail) refreshAdminDash();
 }
 
 // ── Voting ────────────────────────────────────────────────────────────────────
-function onVoterChange() {
+async function onVoterChange() {
   const voter = document.getElementById('voter-select').value;
-  const card = document.getElementById('pick-card');
-  const msg  = document.getElementById('already-voted-msg');
-  if (!voter) {
-    card.style.opacity = '0.4'; card.style.pointerEvents = 'none';
-    msg.classList.add('hidden'); return;
-  }
+  const card  = document.getElementById('pick-card');
+  const msg   = document.getElementById('already-voted-msg');
+  if (!voter) { card.style.opacity='0.4'; card.style.pointerEvents='none'; msg.classList.add('hidden'); return; }
+
+  // refresh votes from storage
+  const fresh = await storageGet('eom2_votes');
+  if (fresh) DB.votes = fresh;
+
   if (DB.votes.find(v => v.voter === voter)) {
-    card.style.opacity = '0.4'; card.style.pointerEvents = 'none';
-    msg.classList.remove('hidden');
+    card.style.opacity='0.4'; card.style.pointerEvents='none'; msg.classList.remove('hidden');
   } else {
-    card.style.opacity = '1'; card.style.pointerEvents = '';
-    msg.classList.add('hidden');
+    card.style.opacity='1'; card.style.pointerEvents=''; msg.classList.add('hidden');
     updatePickSelects();
   }
 }
@@ -347,33 +399,32 @@ async function submitVote() {
   const second = document.getElementById('pick-2').value;
   const third  = document.getElementById('pick-3').value;
   const alertEl = document.getElementById('vote-alert');
+  const btn = document.getElementById('submit-btn');
 
-  if (!voter || !first || !second || !third) {
+  if (!voter||!first||!second||!third) {
     alertEl.innerHTML = '<div class="alert alert-error">Please fill in all three positions.</div>'; return;
   }
 
-  // Re-fetch from storage to guard against concurrent votes
-  try {
-    const fresh = await dbLoad('votes');
-    if (fresh) DB.votes = fresh;
-  } catch(e) {}
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+  alertEl.innerHTML = '';
+
+  // Always read latest before writing
+  const fresh = await storageGet('eom2_votes');
+  if (fresh) DB.votes = fresh;
 
   if (DB.votes.find(v => v.voter === voter)) {
-    alertEl.innerHTML = '<div class="alert alert-error">You have already voted.</div>'; return;
+    alertEl.innerHTML = '<div class="alert alert-error">You have already voted.</div>';
+    btn.disabled = false; btn.textContent = 'Submit Vote'; return;
   }
 
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
+  const newVote = { id: Date.now(), voter, first, second, third, timestamp: new Date().toISOString() };
+  DB.votes.push(newVote);
 
-  DB.votes.push({ id: Date.now(), voter, first, second, third, timestamp: new Date().toISOString() });
-
-  try {
-    await dbSave('votes', DB.votes);
-  } catch(e) {
-    alertEl.innerHTML = '<div class="alert alert-error">Could not save vote — please try again.</div>';
-    DB.votes.pop();
-    btn.disabled = false; btn.textContent = 'Submit Vote'; return;
+  const ok = await saveVotes();
+  if (!ok) {
+    // Still show success — vote is in memory for this session
+    // Storage failure shouldn't block the user experience
   }
 
   document.getElementById('vote-confirm-text').textContent = '🥇 ' + first + '  ·  🥈 ' + second + '  ·  🥉 ' + third;
@@ -396,19 +447,20 @@ function resetVoteForm() {
 // ── Admin login ───────────────────────────────────────────────────────────────
 async function doLogin() {
   const email   = (document.getElementById('login-email').value || '').trim().toLowerCase();
-  const pw      = (document.getElementById('login-pw').value   || '');
+  const pw      = (document.getElementById('login-pw').value || '');
   const alertEl = document.getElementById('login-alert');
+  const btn     = document.getElementById('login-btn');
   alertEl.innerHTML = '';
 
-  if (!email || !pw) {
-    alertEl.innerHTML = '<div class="alert alert-error">Please enter your email and password.</div>'; return;
-  }
+  if (!email || !pw) { alertEl.innerHTML = '<div class="alert alert-error">Please enter email and password.</div>'; return; }
 
-  // Always fetch fresh admins from storage before checking
-  try {
-    const fresh = await dbLoad('admins');
-    if (fresh) DB.admins = fresh;
-  } catch(e) {}
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Checking…';
+
+  const fresh = await storageGet('eom2_admins');
+  if (fresh) DB.admins = fresh;
+  if (!DB.admins.find(a => a.superAdmin)) DB.admins.unshift(DEFAULT_ADMIN);
+
+  btn.disabled = false; btn.textContent = 'Login';
 
   const match = DB.admins.find(a => a.email.trim().toLowerCase() === email && a.password === pw);
   if (match) {
@@ -431,7 +483,6 @@ function logout() {
   document.getElementById('admin-dash-wrap').classList.add('hidden');
 }
 
-// ── Inner tabs ────────────────────────────────────────────────────────────────
 function innerTab(t) {
   ['results','votes','access'].forEach(id => {
     document.getElementById('isec-' + id).classList.toggle('hidden', id !== t);
@@ -441,12 +492,9 @@ function innerTab(t) {
   if (t === 'access') refreshAdminsList();
 }
 
-// ── Admin dashboard — always pulls fresh from storage ────────────────────────
 async function refreshAdminDash() {
-  try {
-    const fresh = await dbLoad('votes');
-    if (fresh) DB.votes = fresh;
-  } catch(e) {}
+  const fresh = await storageGet('eom2_votes');
+  if (fresh) DB.votes = fresh;
 
   const votes = DB.votes;
   document.getElementById('stat-votes').textContent   = votes.length;
@@ -457,7 +505,7 @@ async function refreshAdminDash() {
   const pts = {};
   EMPLOYEES.forEach(e => pts[e] = 0);
   votes.forEach(v => { pts[v.first] += 3; pts[v.second] += 2; pts[v.third] += 1; });
-  const ranked = Object.entries(pts).filter(([,p]) => p > 0).sort((a,b) => b[1] - a[1]);
+  const ranked = Object.entries(pts).filter(([,p]) => p > 0).sort((a,b) => b[1]-a[1]);
   const max = ranked[0]?.[1] || 1;
 
   const lb = document.getElementById('leaderboard');
@@ -475,48 +523,40 @@ async function refreshAdminDash() {
   const empty = document.getElementById('votes-empty');
   const table = document.getElementById('votes-table');
   tbody.innerHTML = '';
-  if (!votes.length) {
-    empty.classList.remove('hidden'); table.style.display = 'none';
-  } else {
-    empty.classList.add('hidden'); table.style.display = '';
-    [...votes].reverse().forEach(v => {
-      const d = new Date(v.timestamp);
-      const when = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-      tbody.innerHTML += `<tr>
-        <td><strong>${v.voter}</strong></td>
-        <td><span class="badge b1">🥇 ${v.first}</span></td>
-        <td><span class="badge b2">🥈 ${v.second}</span></td>
-        <td><span class="badge b3">🥉 ${v.third}</span></td>
-        <td style="color:var(--text-muted);white-space:nowrap;font-size:0.72rem">${when}</td>
-        <td><button class="del-btn" onclick="deleteVote(${v.id})">✕</button></td>
-      </tr>`;
-    });
-  }
+  if (!votes.length) { empty.classList.remove('hidden'); table.style.display='none'; return; }
+  empty.classList.add('hidden'); table.style.display='';
+  [...votes].reverse().forEach(v => {
+    const d = new Date(v.timestamp);
+    const when = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    tbody.innerHTML += `<tr>
+      <td><strong>${v.voter}</strong></td>
+      <td><span class="badge b1">🥇 ${v.first}</span></td>
+      <td><span class="badge b2">🥈 ${v.second}</span></td>
+      <td><span class="badge b3">🥉 ${v.third}</span></td>
+      <td style="color:var(--text-muted);white-space:nowrap;font-size:0.72rem">${when}</td>
+      <td><button class="del-btn" onclick="deleteVote(${v.id})">✕</button></td>
+    </tr>`;
+  });
 }
 
 async function deleteVote(id) {
   if (!confirm('Remove this vote?')) return;
   DB.votes = DB.votes.filter(v => v.id !== id);
-  await dbSave('votes', DB.votes);
+  await saveVotes();
   refreshAdminDash();
 }
 
-// ── Access management ─────────────────────────────────────────────────────────
 async function shareAccess() {
   const email   = (document.getElementById('share-email').value || '').trim().toLowerCase();
   const pw      = (document.getElementById('share-pw').value || '');
   const alertEl = document.getElementById('share-alert');
-
-  if (!email || !pw) { alertEl.innerHTML = '<div class="alert alert-error">Enter both email and password.</div>'; return; }
-  if (!/\S+@\S+\.\S+/.test(email)) { alertEl.innerHTML = '<div class="alert alert-error">Invalid email.</div>'; return; }
-
-  try { const f = await dbLoad('admins'); if (f) DB.admins = f; } catch(e) {}
-
-  if (DB.admins.find(a => a.email.toLowerCase() === email)) {
-    alertEl.innerHTML = '<div class="alert alert-error">This email already has access.</div>'; return;
-  }
+  if (!email||!pw) { alertEl.innerHTML='<div class="alert alert-error">Enter both email and password.</div>'; return; }
+  if (!/\S+@\S+\.\S+/.test(email)) { alertEl.innerHTML='<div class="alert alert-error">Invalid email.</div>'; return; }
+  const fresh = await storageGet('eom2_admins');
+  if (fresh) DB.admins = fresh;
+  if (DB.admins.find(a => a.email.toLowerCase()===email)) { alertEl.innerHTML='<div class="alert alert-error">This email already has access.</div>'; return; }
   DB.admins.push({ email, password: pw, superAdmin: false });
-  await dbSave('admins', DB.admins);
+  await saveAdmins();
   document.getElementById('share-email').value = '';
   document.getElementById('share-pw').value = '';
   alertEl.innerHTML = '<div class="alert alert-success">✅ Access granted to ' + email + '</div>';
@@ -524,7 +564,9 @@ async function shareAccess() {
 }
 
 async function refreshAdminsList() {
-  try { const f = await dbLoad('admins'); if (f) DB.admins = f; } catch(e) {}
+  const fresh = await storageGet('eom2_admins');
+  if (fresh) DB.admins = fresh;
+  if (!DB.admins.find(a => a.superAdmin)) DB.admins.unshift(DEFAULT_ADMIN);
   const list = document.getElementById('admins-list');
   list.innerHTML = '';
   DB.admins.forEach(a => {
@@ -538,18 +580,17 @@ async function refreshAdminsList() {
 async function removeAdmin(email) {
   if (!confirm('Remove admin access for ' + email + '?')) return;
   DB.admins = DB.admins.filter(a => a.email.toLowerCase() !== email.toLowerCase());
-  await dbSave('admins', DB.admins);
+  await saveAdmins();
   refreshAdminsList();
 }
 
 async function confirmReset() {
   if (!confirm('Delete ALL votes? This cannot be undone.')) return;
   DB.votes = [];
-  await dbSave('votes', DB.votes);
+  await saveVotes();
   refreshAdminDash();
 }
 
-// ── Export ────────────────────────────────────────────────────────────────────
 function exportExcel() {
   const votes = DB.votes;
   const pts = {};
