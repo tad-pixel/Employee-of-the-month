@@ -23,16 +23,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);m
 .top-tab.active{color:var(--accent);border-bottom:2px solid var(--accent)}
 .top-tab:hover:not(.active){color:var(--text)}
 .main{padding:1.5rem 1rem;max-width:660px;margin:0 auto}
-.page{display:none}
-.page.visible{display:block}
+.page{display:none}.page.visible{display:block}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.3rem;margin-bottom:1.2rem}
 .card-title{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--accent);margin-bottom:1rem}
 label{display:block;font-size:0.75rem;color:var(--text-muted);margin-bottom:5px;font-weight:500;text-transform:uppercase;letter-spacing:0.08em}
-select,input[type=email],input[type=password],input[type=text]{
-  width:100%;background:#1A1A2E;border:1px solid var(--border);border-radius:8px;
-  padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;
-  outline:none;transition:border-color 0.2s;appearance:none;
-}
+select,input[type=email],input[type=password],input[type=text]{width:100%;background:#1A1A2E;border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;transition:border-color 0.2s;appearance:none}
 select:focus,input:focus{border-color:var(--accent)}
 select option{background:#1A1A2E}
 .field{margin-bottom:1rem}
@@ -90,6 +85,9 @@ select option{background:#1A1A2E}
 .share-row input{margin-bottom:0;flex:1}
 .hidden{display:none!important}
 .pts-hint{font-size:0.78rem;color:var(--text-muted);margin-bottom:1rem;padding:8px 12px;background:rgba(232,197,71,0.06);border-radius:8px;border:1px solid var(--border)}
+.loading{text-align:center;padding:3rem;color:var(--text-muted)}
+.spinner{display:inline-block;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin-bottom:0.5rem}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -105,8 +103,13 @@ select option{background:#1A1A2E}
 
 <div class="main">
 
+  <!-- Loading screen -->
+  <div id="app-loading" class="loading">
+    <div class="spinner"></div><br>Loading...
+  </div>
+
   <!-- VOTE PAGE -->
-  <div class="page visible" id="page-vote">
+  <div class="page hidden" id="page-vote">
     <div id="vote-form-wrap">
       <div class="card">
         <div class="card-title">👤 Who are you?</div>
@@ -118,10 +121,9 @@ select option{background:#1A1A2E}
         </div>
         <div id="already-voted-msg" class="alert alert-info hidden">✅ You have already submitted a vote this period.</div>
       </div>
-
       <div class="card" id="pick-card" style="opacity:0.4;pointer-events:none">
         <div class="card-title">🏆 Your Nominations</div>
-        <div class="pts-hint">🥇 1st place = 3 pts &nbsp;·&nbsp; 🥈 2nd place = 2 pts &nbsp;·&nbsp; 🥉 3rd place = 1 pt<br><small style="opacity:0.7">You cannot vote for yourself or pick the same person twice.</small></div>
+        <div class="pts-hint">🥇 1st = 3 pts &nbsp;·&nbsp; 🥈 2nd = 2 pts &nbsp;·&nbsp; 🥉 3rd = 1 pt<br><small style="opacity:0.7">You cannot vote for yourself or pick the same person twice.</small></div>
         <div class="positions">
           <div class="position-row">
             <div class="position-badge pos-1">1st</div>
@@ -147,12 +149,9 @@ select option{background:#1A1A2E}
         </div>
         <div class="divider"></div>
         <div id="vote-alert"></div>
-        <button class="btn btn-primary btn-block" id="submit-btn" onclick="submitVote()" disabled>
-          Submit Vote
-        </button>
+        <button class="btn btn-primary btn-block" id="submit-btn" onclick="submitVote()" disabled>Submit Vote</button>
       </div>
     </div>
-
     <div id="vote-success-wrap" class="hidden">
       <div class="card">
         <div class="confetti-wrap">
@@ -166,7 +165,7 @@ select option{background:#1A1A2E}
   </div>
 
   <!-- ADMIN PAGE -->
-  <div class="page" id="page-admin">
+  <div class="page hidden" id="page-admin">
     <div id="admin-login-wrap">
       <div class="login-wrap">
         <div class="card">
@@ -184,7 +183,6 @@ select option{background:#1A1A2E}
         </div>
       </div>
     </div>
-
     <div id="admin-dash-wrap" class="hidden">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
         <div>
@@ -198,7 +196,6 @@ select option{background:#1A1A2E}
         <button class="itab" id="itab-votes" onclick="innerTab('votes')">All Votes</button>
         <button class="itab" id="itab-access" onclick="innerTab('access')">Access</button>
       </div>
-
       <div id="isec-results">
         <div class="stats-grid">
           <div class="stat-box"><div class="stat-num" id="stat-votes">0</div><div class="stat-lbl">Total Votes</div></div>
@@ -211,7 +208,6 @@ select option{background:#1A1A2E}
         </div>
         <button class="btn btn-success btn-block" onclick="exportExcel()">⬇ Export to Excel</button>
       </div>
-
       <div id="isec-votes" class="hidden">
         <div class="card" style="overflow-x:auto">
           <div class="card-title">📋 Vote Log</div>
@@ -222,7 +218,6 @@ select option{background:#1A1A2E}
           </table>
         </div>
       </div>
-
       <div id="isec-access" class="hidden">
         <div class="card">
           <div class="card-title">👥 Grant Admin Access</div>
@@ -250,39 +245,43 @@ select option{background:#1A1A2E}
 
 <script>
 const EMPLOYEES = ['Ahkil','Aleksei "Alex"','Chris','Cody','Collin','Danial','Danny','Dhananjay "Drew"','Dhanush','Domingo','Garrett','Hilario "Larry"','Jasmine','Luisander "Luis"','Manuel "Manny"','Maria','Matthew M','Matthew P','Nicole','Paul','Samreen','Taha','Tho','Viquar','Yorleny'];
+const DEFAULT_ADMIN = { email: 'admin@company.com', password: 'Admin123!', superAdmin: true };
 
-// ── Pure in-memory store ──────────────────────────────────────────────────────
-const DB = {
-  votes: [],
-  admins: [{ email: 'admin@company.com', password: 'Admin123!', superAdmin: true }]
-};
+// Shared storage keys — shared:true means ALL users/devices see the same data
+const KEYS = { votes: 'eom_v1_votes', admins: 'eom_v1_admins' };
 
-// Try to persist to window.storage silently; never block on it
-function tryPersist(key) {
-  try {
-    if (window.storage && typeof window.storage.set === 'function') {
-      window.storage.set('eom_' + key, JSON.stringify(DB[key]), true).catch(() => {});
-    }
-  } catch(e) {}
-}
-
-async function tryRestore() {
-  try {
-    if (window.storage && typeof window.storage.get === 'function') {
-      const v = await window.storage.get('eom_votes', true);
-      const a = await window.storage.get('eom_admins', true);
-      if (v) DB.votes = JSON.parse(v.value);
-      if (a) DB.admins = JSON.parse(a.value);
-    }
-  } catch(e) {}
-}
-
+let DB = { votes: [], admins: [DEFAULT_ADMIN] };
 let loggedInEmail = null;
+
+// ── Storage: always use shared=true so all devices share the same data ────────
+async function dbLoad(key) {
+  const result = await window.storage.get(KEYS[key], true);
+  return result ? JSON.parse(result.value) : null;
+}
+async function dbSave(key, val) {
+  await window.storage.set(KEYS[key], JSON.stringify(val), true);
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function init() {
-  await tryRestore();
+  try {
+    const [votes, admins] = await Promise.all([dbLoad('votes'), dbLoad('admins')]);
+    DB.votes  = votes  || [];
+    DB.admins = admins || [DEFAULT_ADMIN];
+    // Ensure default admin always exists
+    if (!DB.admins.find(a => a.superAdmin)) {
+      DB.admins.unshift(DEFAULT_ADMIN);
+      await dbSave('admins', DB.admins);
+    }
+  } catch(e) {
+    // storage unavailable — run with in-memory only
+    DB.votes  = [];
+    DB.admins = [DEFAULT_ADMIN];
+  }
   populateSelects();
+  document.getElementById('app-loading').classList.add('hidden');
+  document.getElementById('page-vote').classList.remove('hidden');
+  document.getElementById('page-vote').classList.add('visible');
 }
 
 function populateSelects() {
@@ -297,7 +296,9 @@ function populateSelects() {
 // ── Navigation ────────────────────────────────────────────────────────────────
 function switchTop(tab) {
   ['vote','admin'].forEach(t => {
-    document.getElementById('page-' + t).classList.toggle('visible', t === tab);
+    const p = document.getElementById('page-' + t);
+    p.classList.toggle('visible', t === tab);
+    p.classList.toggle('hidden', t !== tab);
     document.getElementById('ttab-' + t).classList.toggle('active', t === tab);
   });
   if (tab === 'admin' && loggedInEmail) refreshAdminDash();
@@ -307,23 +308,16 @@ function switchTop(tab) {
 function onVoterChange() {
   const voter = document.getElementById('voter-select').value;
   const card = document.getElementById('pick-card');
-  const msg = document.getElementById('already-voted-msg');
-
+  const msg  = document.getElementById('already-voted-msg');
   if (!voter) {
-    card.style.opacity = '0.4';
-    card.style.pointerEvents = 'none';
-    msg.classList.add('hidden');
-    return;
+    card.style.opacity = '0.4'; card.style.pointerEvents = 'none';
+    msg.classList.add('hidden'); return;
   }
-
-  const already = DB.votes.find(v => v.voter === voter);
-  if (already) {
-    card.style.opacity = '0.4';
-    card.style.pointerEvents = 'none';
+  if (DB.votes.find(v => v.voter === voter)) {
+    card.style.opacity = '0.4'; card.style.pointerEvents = 'none';
     msg.classList.remove('hidden');
   } else {
-    card.style.opacity = '1';
-    card.style.pointerEvents = '';
+    card.style.opacity = '1'; card.style.pointerEvents = '';
     msg.classList.add('hidden');
     updatePickSelects();
   }
@@ -331,45 +325,58 @@ function onVoterChange() {
 
 function updatePickSelects() {
   const voter = document.getElementById('voter-select').value;
-  const vals = ['pick-1','pick-2','pick-3'].map(id => document.getElementById(id).value);
+  const vals  = ['pick-1','pick-2','pick-3'].map(id => document.getElementById(id).value);
   ['pick-1','pick-2','pick-3'].forEach((id, i) => {
-    const sel = document.getElementById(id);
     const others = vals.filter((_, j) => j !== i);
-    Array.from(sel.options).forEach(opt => {
+    Array.from(document.getElementById(id).options).forEach(opt => {
       if (!opt.value) return;
-      opt.disabled = (opt.value === voter) || others.includes(opt.value);
+      opt.disabled = opt.value === voter || others.includes(opt.value);
     });
   });
 }
 
 function onPickChange() {
   updatePickSelects();
-  const allPicked = ['pick-1','pick-2','pick-3'].every(id => document.getElementById(id).value !== '');
-  document.getElementById('submit-btn').disabled = !allPicked;
+  document.getElementById('submit-btn').disabled =
+    !['pick-1','pick-2','pick-3'].every(id => document.getElementById(id).value);
 }
 
-function submitVote() {
+async function submitVote() {
   const voter  = document.getElementById('voter-select').value;
   const first  = document.getElementById('pick-1').value;
   const second = document.getElementById('pick-2').value;
   const third  = document.getElementById('pick-3').value;
+  const alertEl = document.getElementById('vote-alert');
 
   if (!voter || !first || !second || !third) {
-    document.getElementById('vote-alert').innerHTML = '<div class="alert alert-error">Please fill in all three positions.</div>';
-    return;
+    alertEl.innerHTML = '<div class="alert alert-error">Please fill in all three positions.</div>'; return;
   }
+
+  // Re-fetch from storage to guard against concurrent votes
+  try {
+    const fresh = await dbLoad('votes');
+    if (fresh) DB.votes = fresh;
+  } catch(e) {}
 
   if (DB.votes.find(v => v.voter === voter)) {
-    document.getElementById('vote-alert').innerHTML = '<div class="alert alert-error">You have already voted.</div>';
-    return;
+    alertEl.innerHTML = '<div class="alert alert-error">You have already voted.</div>'; return;
   }
 
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
   DB.votes.push({ id: Date.now(), voter, first, second, third, timestamp: new Date().toISOString() });
-  tryPersist('votes');
 
-  document.getElementById('vote-confirm-text').textContent =
-    '🥇 ' + first + '  ·  🥈 ' + second + '  ·  🥉 ' + third;
+  try {
+    await dbSave('votes', DB.votes);
+  } catch(e) {
+    alertEl.innerHTML = '<div class="alert alert-error">Could not save vote — please try again.</div>';
+    DB.votes.pop();
+    btn.disabled = false; btn.textContent = 'Submit Vote'; return;
+  }
 
+  document.getElementById('vote-confirm-text').textContent = '🥇 ' + first + '  ·  🥈 ' + second + '  ·  🥉 ' + third;
   document.getElementById('vote-form-wrap').classList.add('hidden');
   document.getElementById('vote-success-wrap').classList.remove('hidden');
 }
@@ -378,6 +385,7 @@ function resetVoteForm() {
   ['voter-select','pick-1','pick-2','pick-3'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('vote-alert').innerHTML = '';
   document.getElementById('submit-btn').disabled = true;
+  document.getElementById('submit-btn').textContent = 'Submit Vote';
   document.getElementById('pick-card').style.opacity = '0.4';
   document.getElementById('pick-card').style.pointerEvents = 'none';
   document.getElementById('already-voted-msg').classList.add('hidden');
@@ -386,16 +394,21 @@ function resetVoteForm() {
 }
 
 // ── Admin login ───────────────────────────────────────────────────────────────
-function doLogin() {
-  const email = (document.getElementById('login-email').value || '').trim().toLowerCase();
-  const pw    = (document.getElementById('login-pw').value || '');
+async function doLogin() {
+  const email   = (document.getElementById('login-email').value || '').trim().toLowerCase();
+  const pw      = (document.getElementById('login-pw').value   || '');
   const alertEl = document.getElementById('login-alert');
   alertEl.innerHTML = '';
 
   if (!email || !pw) {
-    alertEl.innerHTML = '<div class="alert alert-error">Please enter your email and password.</div>';
-    return;
+    alertEl.innerHTML = '<div class="alert alert-error">Please enter your email and password.</div>'; return;
   }
+
+  // Always fetch fresh admins from storage before checking
+  try {
+    const fresh = await dbLoad('admins');
+    if (fresh) DB.admins = fresh;
+  } catch(e) {}
 
   const match = DB.admins.find(a => a.email.trim().toLowerCase() === email && a.password === pw);
   if (match) {
@@ -418,7 +431,7 @@ function logout() {
   document.getElementById('admin-dash-wrap').classList.add('hidden');
 }
 
-// ── Admin inner tabs ──────────────────────────────────────────────────────────
+// ── Inner tabs ────────────────────────────────────────────────────────────────
 function innerTab(t) {
   ['results','votes','access'].forEach(id => {
     document.getElementById('isec-' + id).classList.toggle('hidden', id !== t);
@@ -428,53 +441,44 @@ function innerTab(t) {
   if (t === 'access') refreshAdminsList();
 }
 
-// ── Admin dashboard ───────────────────────────────────────────────────────────
-function refreshAdminDash() {
+// ── Admin dashboard — always pulls fresh from storage ────────────────────────
+async function refreshAdminDash() {
+  try {
+    const fresh = await dbLoad('votes');
+    if (fresh) DB.votes = fresh;
+  } catch(e) {}
+
   const votes = DB.votes;
-  document.getElementById('stat-votes').textContent  = votes.length;
-  document.getElementById('stat-voters').textContent = votes.length;
+  document.getElementById('stat-votes').textContent   = votes.length;
+  document.getElementById('stat-voters').textContent  = votes.length;
   const nominees = new Set(votes.flatMap(v => [v.first, v.second, v.third]));
   document.getElementById('stat-nominees').textContent = nominees.size;
 
-  // Tally
   const pts = {};
   EMPLOYEES.forEach(e => pts[e] = 0);
-  votes.forEach(v => {
-    pts[v.first]  = (pts[v.first]  || 0) + 3;
-    pts[v.second] = (pts[v.second] || 0) + 2;
-    pts[v.third]  = (pts[v.third]  || 0) + 1;
-  });
+  votes.forEach(v => { pts[v.first] += 3; pts[v.second] += 2; pts[v.third] += 1; });
   const ranked = Object.entries(pts).filter(([,p]) => p > 0).sort((a,b) => b[1] - a[1]);
   const max = ranked[0]?.[1] || 1;
 
   const lb = document.getElementById('leaderboard');
-  if (!ranked.length) { lb.innerHTML = '<div class="empty">No votes yet.</div>'; }
-  else {
-    lb.innerHTML = '';
-    ranked.forEach(([name, p], i) => {
-      const rc = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : '';
-      lb.innerHTML += `<li class="leader-row">
-        <div class="leader-rank ${rc}">${i+1}</div>
-        <div style="flex:1">
-          <div class="leader-name">${name}</div>
-          <div class="leader-bar" style="width:${Math.round(p/max*100)}%"></div>
-        </div>
-        <div class="leader-pts">${p} pts</div>
-      </li>`;
-    });
-  }
+  lb.innerHTML = ranked.length ? '' : '<div class="empty">No votes yet.</div>';
+  ranked.forEach(([name, p], i) => {
+    const rc = i===0?'r1':i===1?'r2':i===2?'r3':'';
+    lb.innerHTML += `<li class="leader-row">
+      <div class="leader-rank ${rc}">${i+1}</div>
+      <div style="flex:1"><div class="leader-name">${name}</div>
+      <div class="leader-bar" style="width:${Math.round(p/max*100)}%"></div></div>
+      <div class="leader-pts">${p} pts</div></li>`;
+  });
 
-  // Vote log
   const tbody = document.getElementById('votes-tbody');
   const empty = document.getElementById('votes-empty');
   const table = document.getElementById('votes-table');
   tbody.innerHTML = '';
   if (!votes.length) {
-    empty.classList.remove('hidden');
-    table.style.display = 'none';
+    empty.classList.remove('hidden'); table.style.display = 'none';
   } else {
-    empty.classList.add('hidden');
-    table.style.display = '';
+    empty.classList.add('hidden'); table.style.display = '';
     [...votes].reverse().forEach(v => {
       const d = new Date(v.timestamp);
       const when = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
@@ -490,53 +494,58 @@ function refreshAdminDash() {
   }
 }
 
-function deleteVote(id) {
+async function deleteVote(id) {
   if (!confirm('Remove this vote?')) return;
   DB.votes = DB.votes.filter(v => v.id !== id);
-  tryPersist('votes');
+  await dbSave('votes', DB.votes);
   refreshAdminDash();
 }
 
 // ── Access management ─────────────────────────────────────────────────────────
-function shareAccess() {
-  const email = (document.getElementById('share-email').value || '').trim().toLowerCase();
-  const pw    = (document.getElementById('share-pw').value || '');
+async function shareAccess() {
+  const email   = (document.getElementById('share-email').value || '').trim().toLowerCase();
+  const pw      = (document.getElementById('share-pw').value || '');
   const alertEl = document.getElementById('share-alert');
 
   if (!email || !pw) { alertEl.innerHTML = '<div class="alert alert-error">Enter both email and password.</div>'; return; }
-  if (!/\S+@\S+\.\S+/.test(email)) { alertEl.innerHTML = '<div class="alert alert-error">Invalid email address.</div>'; return; }
-  if (DB.admins.find(a => a.email.toLowerCase() === email)) { alertEl.innerHTML = '<div class="alert alert-error">This email already has access.</div>'; return; }
+  if (!/\S+@\S+\.\S+/.test(email)) { alertEl.innerHTML = '<div class="alert alert-error">Invalid email.</div>'; return; }
 
+  try { const f = await dbLoad('admins'); if (f) DB.admins = f; } catch(e) {}
+
+  if (DB.admins.find(a => a.email.toLowerCase() === email)) {
+    alertEl.innerHTML = '<div class="alert alert-error">This email already has access.</div>'; return;
+  }
   DB.admins.push({ email, password: pw, superAdmin: false });
-  tryPersist('admins');
+  await dbSave('admins', DB.admins);
   document.getElementById('share-email').value = '';
   document.getElementById('share-pw').value = '';
   alertEl.innerHTML = '<div class="alert alert-success">✅ Access granted to ' + email + '</div>';
   refreshAdminsList();
 }
 
-function refreshAdminsList() {
+async function refreshAdminsList() {
+  try { const f = await dbLoad('admins'); if (f) DB.admins = f; } catch(e) {}
   const list = document.getElementById('admins-list');
   list.innerHTML = '';
   DB.admins.forEach(a => {
     list.innerHTML += `<li style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.82rem">
-      <span>${a.email}${a.superAdmin ? ' <span style="font-size:0.68rem;color:var(--accent)">(super admin)</span>' : ''}</span>
-      ${!a.superAdmin ? `<button class="del-btn" onclick="removeAdmin('${a.email}')">✕ Remove</button>` : ''}
+      <span>${a.email}${a.superAdmin?' <span style="font-size:0.68rem;color:var(--accent)">(super admin)</span>':''}</span>
+      ${!a.superAdmin?`<button class="del-btn" onclick="removeAdmin('${a.email}')">✕ Remove</button>`:''}
     </li>`;
   });
 }
 
-function removeAdmin(email) {
+async function removeAdmin(email) {
   if (!confirm('Remove admin access for ' + email + '?')) return;
   DB.admins = DB.admins.filter(a => a.email.toLowerCase() !== email.toLowerCase());
-  tryPersist('admins');
+  await dbSave('admins', DB.admins);
   refreshAdminsList();
 }
 
-function confirmReset() {
+async function confirmReset() {
   if (!confirm('Delete ALL votes? This cannot be undone.')) return;
   DB.votes = [];
-  tryPersist('votes');
+  await dbSave('votes', DB.votes);
   refreshAdminDash();
 }
 
@@ -546,28 +555,21 @@ function exportExcel() {
   const pts = {};
   EMPLOYEES.forEach(e => pts[e] = 0);
   votes.forEach(v => { pts[v.first] += 3; pts[v.second] += 2; pts[v.third] += 1; });
-  const ranked = Object.entries(pts).sort((a,b) => b[1] - a[1]);
-
+  const ranked = Object.entries(pts).sort((a,b) => b[1]-a[1]);
   const wb = XLSX.utils.book_new();
   const sumData = [['Rank','Employee','Total Points','1st Place Votes','2nd Place Votes','3rd Place Votes']];
-  ranked.forEach(([name,p],i) => sumData.push([i+1, name, p,
+  ranked.forEach(([name,p],i) => sumData.push([i+1,name,p,
     votes.filter(v=>v.first===name).length,
     votes.filter(v=>v.second===name).length,
-    votes.filter(v=>v.third===name).length
-  ]));
+    votes.filter(v=>v.third===name).length]));
   const ws1 = XLSX.utils.aoa_to_sheet(sumData);
   ws1['!cols'] = [{wch:6},{wch:22},{wch:13},{wch:16},{wch:16},{wch:16}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Results');
-
   const logData = [['Voter','1st Place','2nd Place','3rd Place','Date','Time']];
-  votes.forEach(v => {
-    const d = new Date(v.timestamp);
-    logData.push([v.voter, v.first, v.second, v.third, d.toLocaleDateString(), d.toLocaleTimeString()]);
-  });
+  votes.forEach(v => { const d=new Date(v.timestamp); logData.push([v.voter,v.first,v.second,v.third,d.toLocaleDateString(),d.toLocaleTimeString()]); });
   const ws2 = XLSX.utils.aoa_to_sheet(logData);
   ws2['!cols'] = [{wch:20},{wch:20},{wch:20},{wch:20},{wch:12},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws2, 'Vote Log');
-
   XLSX.writeFile(wb, 'Employee_of_the_Month_Results.xlsx');
 }
 
